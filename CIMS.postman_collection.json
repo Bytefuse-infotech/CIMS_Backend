@@ -1,0 +1,726 @@
+{
+  "info": {
+    "name": "CIMS — Coaching Institute Management (Backend)",
+    "description": "Complete Postman collection for the CIMS NestJS backend.\n\n**Deployed base URL:** `https://cimsapi.gogreenbingo.in` (default `baseUrl`). Use `{{localBaseUrl}}` (http://localhost:3000) to point at a local run instead.\n\n**Surfaces**\n- Tenant API  → `/api/v1`  (institute users: admin/teacher/student/parent, JWT via TenantAuthGuard)\n- Platform API → `/platform/v1` (SaaS super-admins: owner/support, JWT via PlatformAuthGuard)\n- Root        → `/health`, `/webhooks/razorpay` (public)\n\n**Auth**\nLogin requests auto-capture `accessToken`/`refreshToken` into collection variables via test scripts. Tenant folder requests send `{{tenantAccessToken}}`; Platform folder requests send `{{platformAccessToken}}`.\n\n**Seeded platform owner (change in production):**\n- email: `owner@cims.test`\n- password: `OwnerPass123!`\n\n**Getting started**\n1. `baseUrl` is already set to the deployed server.\n2. Run `Platform Auth › Login` (owner creds above are pre-filled) → token auto-captured.\n3. `Tenants › Provision tenant` creates an institute + its admin (sets `tenantId`).\n4. Set `subdomain` to the one you provisioned, then run `Tenant Auth › Login`.\n5. Fill id variables (studentId, batchId, etc.) as you create resources — most create requests auto-capture their `_id`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://cimsapi.gogreenbingo.in" },
+    { "key": "localBaseUrl", "value": "http://localhost:3000" },
+    { "key": "subdomain", "value": "acme" },
+    { "key": "tenantAccessToken", "value": "" },
+    { "key": "tenantRefreshToken", "value": "" },
+    { "key": "platformAccessToken", "value": "" },
+    { "key": "platformRefreshToken", "value": "" },
+    { "key": "tenantEmail", "value": "admin@acme.test" },
+    { "key": "tenantPassword", "value": "changeit123" },
+    { "key": "platformEmail", "value": "owner@cims.test" },
+    { "key": "platformPassword", "value": "OwnerPass123!" },
+    { "key": "studentId", "value": "" },
+    { "key": "batchId", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "feePlanId", "value": "" },
+    { "key": "invoiceId", "value": "" },
+    { "key": "assignmentId", "value": "" },
+    { "key": "submissionId", "value": "" },
+    { "key": "testId", "value": "" },
+    { "key": "materialId", "value": "" },
+    { "key": "leadId", "value": "" },
+    { "key": "tenantId", "value": "" },
+    { "key": "planId", "value": "" },
+    { "key": "inviteToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenant Auth (/api/v1/auth)",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.accessToken) pm.collectionVariables.set('tenantAccessToken', b.accessToken);",
+                  "if (b.refreshToken) pm.collectionVariables.set('tenantRefreshToken', b.refreshToken);",
+                  "pm.test('has tokens', () => pm.expect(b.accessToken).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subdomain\": \"{{subdomain}}\",\n  \"email\": \"{{tenantEmail}}\",\n  \"password\": \"{{tenantPassword}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "login"] }
+          }
+        },
+        {
+          "name": "Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.accessToken) pm.collectionVariables.set('tenantAccessToken', b.accessToken);",
+                  "if (b.refreshToken) pm.collectionVariables.set('tenantRefreshToken', b.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{tenantRefreshToken}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "refresh"] }
+          }
+        },
+        {
+          "name": "Accept invite",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"subdomain\": \"{{subdomain}}\",\n  \"token\": \"{{inviteToken}}\",\n  \"password\": \"newpassword123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/accept-invite", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "accept-invite"] }
+          }
+        },
+        {
+          "name": "Invite user (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.inviteToken) pm.collectionVariables.set('inviteToken', b.inviteToken);",
+                  "if (b.userId) pm.collectionVariables.set('userId', b.userId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"teacher@acme.test\",\n  \"name\": \"New Teacher\",\n  \"role\": \"teacher\",\n  \"phone\": \"+911234567890\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/invite", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "invite"] }
+          }
+        },
+        {
+          "name": "Register FCM token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tenantAccessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"fcm-device-token-here\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/fcm-token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "fcm-token"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Students (/api/v1/students)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List students",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/students", "host": ["{{baseUrl}}"], "path": ["api", "v1", "students"] } }
+        },
+        {
+          "name": "Get student",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/students/{{studentId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "students", "{{studentId}}"] } }
+        },
+        {
+          "name": "Create student (admin/teacher)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('studentId', b._id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"rollNo\": \"R-001\",\n  \"admissionDate\": \"2026-01-15\",\n  \"batchIds\": [\"{{batchId}}\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/students", "host": ["{{baseUrl}}"], "path": ["api", "v1", "students"] }
+          }
+        },
+        {
+          "name": "Update student (admin/teacher)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rollNo\": \"R-002\",\n  \"batchIds\": [\"{{batchId}}\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/students/{{studentId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "students", "{{studentId}}"] }
+          }
+        },
+        {
+          "name": "Delete student (admin)",
+          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/students/{{studentId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "students", "{{studentId}}"] } }
+        }
+      ]
+    },
+    {
+      "name": "Batches (/api/v1/batches)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List batches",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/batches", "host": ["{{baseUrl}}"], "path": ["api", "v1", "batches"] } }
+        },
+        {
+          "name": "Get batch",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/batches/{{batchId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "batches", "{{batchId}}"] } }
+        },
+        {
+          "name": "Create batch (admin)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('batchId', b._id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Physics XII - A\",\n  \"subject\": \"Physics\",\n  \"academicYear\": \"2026-27\",\n  \"teacherIds\": [],\n  \"schedule\": [\n    { \"day\": \"Monday\", \"startTime\": \"09:00\", \"endTime\": \"10:30\" }\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/batches", "host": ["{{baseUrl}}"], "path": ["api", "v1", "batches"] }
+          }
+        },
+        {
+          "name": "Update batch (admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Physics XII - B\",\n  \"subject\": \"Physics\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/batches/{{batchId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "batches", "{{batchId}}"] }
+          }
+        },
+        {
+          "name": "Delete batch (admin)",
+          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/batches/{{batchId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "batches", "{{batchId}}"] } }
+        },
+        {
+          "name": "Enroll students (admin/teacher)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"studentIds\": [\"{{studentId}}\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/batches/{{batchId}}/enroll", "host": ["{{baseUrl}}"], "path": ["api", "v1", "batches", "{{batchId}}", "enroll"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fees (/api/v1)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List fee plans",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/fee-plans", "host": ["{{baseUrl}}"], "path": ["api", "v1", "fee-plans"] } }
+        },
+        {
+          "name": "Create fee plan (admin)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('feePlanId', b._id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Annual Fee 2026\",\n  \"totalAmount\": 60000,\n  \"batchId\": \"{{batchId}}\",\n  \"splitInto\": 3,\n  \"firstDueDate\": \"2026-08-01\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/fee-plans", "host": ["{{baseUrl}}"], "path": ["api", "v1", "fee-plans"] },
+            "description": "Provide explicit `installments` array OR use `splitInto` + `firstDueDate` to auto-split.\n\nExplicit example:\n```\n\"installments\": [ { \"label\": \"Term 1\", \"amount\": 20000, \"dueDate\": \"2026-08-01\" } ]\n```"
+          }
+        },
+        {
+          "name": "Generate invoices (admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"studentIds\": [\"{{studentId}}\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/fee-plans/{{feePlanId}}/generate-invoices", "host": ["{{baseUrl}}"], "path": ["api", "v1", "fee-plans", "{{feePlanId}}", "generate-invoices"] },
+            "description": "`studentIds` optional — omit to generate for all students in the plan's batch."
+          }
+        },
+        {
+          "name": "List invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices?studentId={{studentId}}&status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invoices"],
+              "query": [
+                { "key": "studentId", "value": "{{studentId}}" },
+                { "key": "status", "value": "pending", "description": "pending | partial | paid | overdue" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get invoice receipt",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/invoices/{{invoiceId}}/receipt", "host": ["{{baseUrl}}"], "path": ["api", "v1", "invoices", "{{invoiceId}}", "receipt"] } }
+        },
+        {
+          "name": "Create payment order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"invoiceId\": \"{{invoiceId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/payments/order", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments", "order"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance (/api/v1/attendance)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAccessToken}}" }] },
+      "item": [
+        {
+          "name": "Mark attendance (admin/teacher)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"batchId\": \"{{batchId}}\",\n  \"date\": \"2026-07-03\",\n  \"entries\": [\n    { \"studentId\": \"{{studentId}}\", \"status\": \"present\" }\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/attendance/mark", "host": ["{{baseUrl}}"], "path": ["api", "v1", "attendance", "mark"] },
+            "description": "status: present | absent | late"
+          }
+        },
+        {
+          "name": "Query attendance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/attendance?studentId={{studentId}}&batchId={{batchId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "attendance"],
+              "query": [
+                { "key": "studentId", "value": "{{studentId}}" },
+                { "key": "batchId", "value": "{{batchId}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Academics (/api/v1)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/assignments?batchId={{batchId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "assignments"],
+              "query": [{ "key": "batchId", "value": "{{batchId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Create assignment (admin/teacher)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('assignmentId', b._id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"batchId\": \"{{batchId}}\",\n  \"title\": \"Chapter 1 Problems\",\n  \"description\": \"Solve Q1-Q10\",\n  \"attachmentUrl\": \"https://files.example.com/hw1.pdf\",\n  \"dueDate\": \"2026-07-20\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/assignments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "assignments"] }
+          }
+        },
+        {
+          "name": "Submit assignment (student)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('submissionId', b._id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"fileUrl\": \"https://files.example.com/my-submission.pdf\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/assignments/{{assignmentId}}/submit", "host": ["{{baseUrl}}"], "path": ["api", "v1", "assignments", "{{assignmentId}}", "submit"] }
+          }
+        },
+        {
+          "name": "List submissions (admin/teacher)",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/assignments/{{assignmentId}}/submissions", "host": ["{{baseUrl}}"], "path": ["api", "v1", "assignments", "{{assignmentId}}", "submissions"] } }
+        },
+        {
+          "name": "Grade submission (admin/teacher)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"grade\": \"A\",\n  \"feedback\": \"Well done\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/submissions/{{submissionId}}/grade", "host": ["{{baseUrl}}"], "path": ["api", "v1", "submissions", "{{submissionId}}", "grade"] }
+          }
+        },
+        {
+          "name": "List tests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tests?batchId={{batchId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tests"],
+              "query": [{ "key": "batchId", "value": "{{batchId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Create test (admin/teacher)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('testId', b._id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"batchId\": \"{{batchId}}\",\n  \"title\": \"Unit Test 1\",\n  \"maxMarks\": 100,\n  \"date\": \"2026-07-25\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/tests", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tests"] }
+          }
+        },
+        {
+          "name": "Record score (admin/teacher)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"marks\": 87,\n  \"remarks\": \"Good\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/tests/{{testId}}/scores", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tests", "{{testId}}", "scores"] }
+          }
+        },
+        {
+          "name": "List scores",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/tests/{{testId}}/scores", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tests", "{{testId}}", "scores"] } }
+        }
+      ]
+    },
+    {
+      "name": "Materials (/api/v1/materials)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List materials",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/materials?batchId={{batchId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "materials"],
+              "query": [{ "key": "batchId", "value": "{{batchId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Create upload URL (admin/teacher)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"filename\": \"lecture-01.pdf\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/materials/upload-url", "host": ["{{baseUrl}}"], "path": ["api", "v1", "materials", "upload-url"] }
+          }
+        },
+        {
+          "name": "Create material (admin/teacher)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('materialId', b._id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"batchId\": \"{{batchId}}\",\n  \"title\": \"Lecture 1 Notes\",\n  \"type\": \"pdf\",\n  \"fileUrl\": \"https://s3.example.com/lecture-01.pdf\",\n  \"cdnUrl\": \"https://cdn.example.com/lecture-01.pdf\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/materials", "host": ["{{baseUrl}}"], "path": ["api", "v1", "materials"] },
+            "description": "type: video | pdf | doc"
+          }
+        },
+        {
+          "name": "Delete material (admin/teacher)",
+          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/materials/{{materialId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "materials", "{{materialId}}"] } }
+        }
+      ]
+    },
+    {
+      "name": "Leads (/api/v1/leads)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List leads",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leads?status=new",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "leads"],
+              "query": [{ "key": "status", "value": "new", "description": "new | contacted | qualified | converted | lost" }]
+            }
+          }
+        },
+        {
+          "name": "Create lead",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('leadId', b._id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Prospect Parent\",\n  \"phone\": \"+919876543210\",\n  \"source\": \"walk-in\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/leads", "host": ["{{baseUrl}}"], "path": ["api", "v1", "leads"] }
+          }
+        },
+        {
+          "name": "Update lead",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"contacted\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/leads/{{leadId}}", "host": ["{{baseUrl}}"], "path": ["api", "v1", "leads", "{{leadId}}"] }
+          }
+        },
+        {
+          "name": "Add note to lead",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"Called, interested in Physics batch\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/leads/{{leadId}}/notes", "host": ["{{baseUrl}}"], "path": ["api", "v1", "leads", "{{leadId}}", "notes"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications (/api/v1/notifications)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List my notifications",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/notifications", "host": ["{{baseUrl}}"], "path": ["api", "v1", "notifications"] } }
+        }
+      ]
+    },
+    {
+      "name": "Reports (/api/v1/reports)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAccessToken}}" }] },
+      "item": [
+        {
+          "name": "Fees summary (admin/teacher)",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/reports/fees-summary", "host": ["{{baseUrl}}"], "path": ["api", "v1", "reports", "fees-summary"] } }
+        },
+        {
+          "name": "Attendance summary (admin/teacher)",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/reports/attendance", "host": ["{{baseUrl}}"], "path": ["api", "v1", "reports", "attendance"] } }
+        },
+        {
+          "name": "Performance summary (admin/teacher)",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/reports/performance", "host": ["{{baseUrl}}"], "path": ["api", "v1", "reports", "performance"] } }
+        }
+      ]
+    },
+    {
+      "name": "Platform Auth (/platform/v1/auth)",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.accessToken) pm.collectionVariables.set('platformAccessToken', b.accessToken);",
+                  "if (b.refreshToken) pm.collectionVariables.set('platformRefreshToken', b.refreshToken);",
+                  "pm.test('has tokens', () => pm.expect(b.accessToken).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{platformEmail}}\",\n  \"password\": \"{{platformPassword}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/platform/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "auth", "login"] },
+            "description": "Optional `totp` field accepted (2FA reserved, not enforced)."
+          }
+        },
+        {
+          "name": "Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.accessToken) pm.collectionVariables.set('platformAccessToken', b.accessToken);",
+                  "if (b.refreshToken) pm.collectionVariables.set('platformRefreshToken', b.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{platformRefreshToken}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/platform/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "auth", "refresh"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenants (/platform/v1/tenants)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{platformAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List tenants",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/platform/v1/tenants", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "tenants"] } }
+        },
+        {
+          "name": "Get tenant",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/platform/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "tenants", "{{tenantId}}"] } }
+        },
+        {
+          "name": "Provision tenant (owner)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('tenantId', b._id); if (b.tenantId) pm.collectionVariables.set('tenantId', b.tenantId);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Acme Coaching\",\n  \"subdomain\": \"acme\",\n  \"planId\": \"{{planId}}\",\n  \"timezone\": \"Asia/Kolkata\",\n  \"adminName\": \"Acme Admin\",\n  \"adminEmail\": \"admin@acme.test\",\n  \"adminPassword\": \"changeit123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/platform/v1/tenants", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "tenants"] }
+          }
+        },
+        {
+          "name": "Set tenant status (owner)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"active\"\n}" },
+            "url": { "raw": "{{baseUrl}}/platform/v1/tenants/{{tenantId}}", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "tenants", "{{tenantId}}"] },
+            "description": "status: active | suspended | pending"
+          }
+        },
+        {
+          "name": "Update tenant flags (owner)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"flags\": {\n    \"betaReports\": true,\n    \"smsEnabled\": false\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/platform/v1/tenants/{{tenantId}}/flags", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "tenants", "{{tenantId}}", "flags"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Plans (/platform/v1/plans)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{platformAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List plans",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/platform/v1/plans", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "plans"] } }
+        },
+        {
+          "name": "Create plan (owner)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const b = pm.response.json(); if (b._id) pm.collectionVariables.set('planId', b._id);"] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Pro\",\n  \"tier\": \"pro\",\n  \"priceMonthly\": 4999,\n  \"limits\": {\n    \"students\": 500,\n    \"storageGb\": 50\n  },\n  \"features\": [\"reports\", \"sms\", \"materials\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/platform/v1/plans", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "plans"] },
+            "description": "tier: free | starter | pro | enterprise"
+          }
+        },
+        {
+          "name": "Update plan (owner)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"priceMonthly\": 5999,\n  \"features\": [\"reports\", \"sms\", \"materials\", \"analytics\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/platform/v1/plans/{{planId}}", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "plans", "{{planId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Billing (/platform/v1)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{platformAccessToken}}" }] },
+      "item": [
+        {
+          "name": "List subscriptions",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/platform/v1/subscriptions", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "subscriptions"] } }
+        },
+        {
+          "name": "MRR",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/platform/v1/billing/mrr", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "billing", "mrr"] } }
+        }
+      ]
+    },
+    {
+      "name": "Analytics (/platform/v1/analytics)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{platformAccessToken}}" }] },
+      "item": [
+        {
+          "name": "Overview",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/platform/v1/analytics/overview", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "analytics", "overview"] } }
+        }
+      ]
+    },
+    {
+      "name": "Support (/platform/v1)",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{platformAccessToken}}" }] },
+      "item": [
+        {
+          "name": "Impersonate tenant (owner/support)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "" },
+            "url": { "raw": "{{baseUrl}}/platform/v1/tenants/{{tenantId}}/impersonate", "host": ["{{baseUrl}}"], "path": ["platform", "v1", "tenants", "{{tenantId}}", "impersonate"] }
+          }
+        },
+        {
+          "name": "Audit log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/platform/v1/audit-log?actor=&action=&targetTenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["platform", "v1", "audit-log"],
+              "query": [
+                { "key": "actor", "value": "", "description": "filter by actor platformUserId" },
+                { "key": "action", "value": "", "description": "filter by action name" },
+                { "key": "targetTenantId", "value": "{{tenantId}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks (/webhooks)",
+      "item": [
+        {
+          "name": "Razorpay webhook (public)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-razorpay-signature", "value": "", "description": "HMAC signature; empty passes in stub mode (no secret configured)" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"event\": \"payment.captured\",\n  \"payload\": {\n    \"payment\": {\n      \"entity\": {\n        \"id\": \"pay_123\",\n        \"order_id\": \"order_123\",\n        \"amount\": 5000000,\n        \"signature\": \"sig_stub\"\n      }\n    }\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/webhooks/razorpay", "host": ["{{baseUrl}}"], "path": ["webhooks", "razorpay"] },
+            "description": "`amount` is in paisa (5000000 = ₹50,000). order_id must match an existing Payment's gatewayOrderId."
+          }
+        }
+      ]
+    }
+  ]
+}
