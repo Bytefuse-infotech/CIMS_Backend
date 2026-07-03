@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { MaterialType } from '@shared/enums';
 import { Material, MaterialDocument } from './material.schema';
+import { StorageService } from './storage.service';
 
 export interface CreateMaterialInput {
   batchId: string;
@@ -15,7 +16,10 @@ export interface CreateMaterialInput {
 
 @Injectable()
 export class MaterialsService {
-  constructor(@InjectModel(Material.name) private readonly model: Model<MaterialDocument>) {}
+  constructor(
+    @InjectModel(Material.name) private readonly model: Model<MaterialDocument>,
+    private readonly storage: StorageService,
+  ) {}
 
   list(batchId?: string): Promise<Material[]> {
     const q = batchId ? { batchId: new Types.ObjectId(batchId) } : {};
@@ -39,17 +43,12 @@ export class MaterialsService {
   }
 
   /**
-   * Issue a signed upload URL. Real CDN/object-storage signing is deferred; this
-   * returns a stub key + url shape so the client flow (upload direct to storage,
-   * then POST the returned key back) is testable end to end now.
+   * Issue a signed upload URL via the storage seam. Real S3 presigning when CDN
+   * is configured; deterministic stub otherwise. The client uploads directly to
+   * `uploadUrl`, then POSTs the returned `fileKey`/`cdnUrl` back to create the
+   * Material record.
    */
-  createUploadUrl(filename: string): { uploadUrl: string; fileKey: string; cdnUrl: string } {
-    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const fileKey = `materials/${safe}`;
-    return {
-      uploadUrl: `https://storage.stub.local/upload/${fileKey}?signature=stub`,
-      fileKey,
-      cdnUrl: `https://cdn.stub.local/${fileKey}`,
-    };
+  createUploadUrl(filename: string) {
+    return this.storage.createSignedUpload(filename, 'materials');
   }
 }

@@ -6,6 +6,27 @@ export interface AppConfig {
   platformJwt: RealmJwtConfig;
   impersonationExpires: string;
   throttle: { ttl: number; limit: number };
+  razorpay: RazorpayConfig;
+  fcm: { credentialsJson?: string };
+  cdn: CdnConfig;
+}
+
+export interface RazorpayConfig {
+  keyId?: string;
+  keySecret?: string;
+  webhookSecret?: string;
+  /** Convenience: true when both key id and secret are present. */
+  enabled: boolean;
+}
+
+export interface CdnConfig {
+  /** S3-compatible endpoint/bucket for signed uploads. */
+  endpoint?: string;
+  bucket?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  publicBaseUrl?: string;
+  enabled: boolean;
 }
 
 export interface RealmJwtConfig {
@@ -35,5 +56,27 @@ export default (): AppConfig => ({
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL ?? '60000', 10),
     limit: parseInt(process.env.THROTTLE_LIMIT ?? '10', 10),
+  },
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID,
+    keySecret: process.env.RAZORPAY_KEY_SECRET,
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
+    enabled: !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
+  },
+  fcm: {
+    credentialsJson: process.env.FCM_CREDENTIALS_JSON,
+  },
+  cdn: {
+    endpoint: process.env.CDN_ENDPOINT,
+    bucket: process.env.CDN_BUCKET,
+    accessKeyId: process.env.CDN_ACCESS_KEY_ID,
+    secretAccessKey: process.env.CDN_SECRET_ACCESS_KEY,
+    publicBaseUrl: process.env.CDN_PUBLIC_BASE_URL,
+    enabled: !!(
+      process.env.CDN_ENDPOINT &&
+      process.env.CDN_BUCKET &&
+      process.env.CDN_ACCESS_KEY_ID &&
+      process.env.CDN_SECRET_ACCESS_KEY
+    ),
   },
 });
