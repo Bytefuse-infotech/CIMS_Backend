@@ -9,6 +9,8 @@ import { FeeInvoice, FeeInvoiceDocument } from './schemas/fee-invoice.schema';
 import { Payment, PaymentDocument } from './schemas/payment.schema';
 import { applyPayment, computeInvoiceStatus, splitEqualInstallments } from './fee-calc';
 import { CreateFeePlanDto, GenerateInvoicesDto } from './dto/fee.dto';
+import { RazorpayGateway } from './razorpay.gateway';
+import { ReceiptService } from './receipt.service';
 
 @Injectable()
 export class FeesService {
@@ -18,6 +20,8 @@ export class FeesService {
     @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
     @InjectModel(Student.name) private readonly studentModel: Model<StudentDocument>,
     private readonly notifications: NotificationsService,
+    private readonly gateway: RazorpayGateway,
+    private readonly receipts: ReceiptService,
   ) {}
 
   // ---- Fee plans ----
@@ -125,30 +129,44 @@ export class FeesService {
   // ---- Payments ----
 
   /**
-   * Create a payment order for an invoice. Real gateway order creation is
-   * deferred; we persist a Payment in `created` state and return a stub order.
+   * Create a payment order for an invoice via the gateway (real Razorpay order
+   * when configured, deterministic stub otherwise), and persist a Payment in
+   * `created` state keyed to that order id. Returns the order the client hands
+   * to Razorpay checkout.
    */
   async createPaymentOrder(invoiceId: string): Promise<{
     paymentId: string;
     gatewayOrderId: string;
     amount: number;
+    keyId?: string;
   }> {
     const invoice = await this.getInvoice(invoiceId);
     if (invoice.status === InvoiceStatus.PAID) {
       throw new BadRequestException('Invoice already paid');
     }
     const amount = invoice.amountDue - invoice.amountPaid;
-    // Stub order id — the real Razorpay order id replaces this when integrated.
-    const gatewayOrderId = `order_stub_${invoice._id.toString()}_${invoice.amountPaid}`;
+
+    const order = await this.gateway.createOrder({
+      amount,
+      // receipt embeds invoice + paid-so-far to stay unique per outstanding balance
+      receipt: `${invoice._id.toString()}_${invoice.amountPaid}`,
+      notes: { invoiceId: invoice._id.toString(), tenantId: invoice.tenantId },
+    });
 
     const payment = await this.paymentModel.create({
       invoiceId: invoice._id,
       studentId: invoice.studentId,
       amount,
-      gatewayOrderId,
+      gatewayOrderId: order.gatewayOrderId,
       status: PaymentStatus.CREATED,
     });
-    return { paymentId: payment._id.toString(), gatewayOrderId, amount };
+    return {
+      paymentId: payment._id.toString(),
+      gatewayOrderId: order.gatewayOrderId,
+      amount,
+      // The client needs the public key id to open Razorpay checkout.
+      keyId: process.env.RAZORPAY_KEY_ID,
+    };
   }
 
   /**
@@ -203,6 +221,21 @@ export class FeesService {
     if (invoice) {
       invoice.amountPaid = applyPayment(invoice.amountDue, invoice.amountPaid, params.amount);
       invoice.status = computeInvoiceStatus(invoice.amountDue, invoice.amountPaid, invoice.dueDate);
+
+      // Generate + store a PDF receipt (best-effort; never blocks capture).
+      const receiptUrl = await this.receipts.generate({
+        invoiceLabel: invoice.label,
+        amount: params.amount,
+        paidAt: payment.paidAt ?? new Date(),
+        paymentId: params.gatewayPaymentId,
+        tenantId: invoice.tenantId,
+        studentId: invoice.studentId.toString(),
+      });
+      if (receiptUrl) {
+        invoice.receiptUrl = receiptUrl;
+        payment.receiptUrl = receiptUrl;
+        await payment.save();
+      }
       await invoice.save();
 
       // Notify the student that payment is confirmed.
@@ -211,7 +244,7 @@ export class FeesService {
         type: 'invoice_paid',
         title: 'Payment received',
         body: `We received your payment for "${invoice.label}".`,
-        data: { invoiceId: invoice._id.toString() },
+        data: { invoiceId: invoice._id.toString(), receiptUrl: receiptUrl ?? '' },
       });
     }
 

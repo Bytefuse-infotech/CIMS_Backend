@@ -2,7 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { NotificationChannel, NotificationStatus } from '@shared/enums';
+import { User, UserDocument } from '../users/user.schema';
 import { Notification, NotificationDocument } from './notification.schema';
+import { PushService } from './push.service';
 
 export interface NotifyInput {
   userId: string | Types.ObjectId;
@@ -15,8 +17,9 @@ export interface NotifyInput {
 
 /**
  * Central notification pipeline. Every event-driven notification routes through
- * here so a real delivery channel (FCM push, later SMS) drops in behind the same
- * `dispatch` seam. For now it persists as QUEUED and logs — no external sends.
+ * here so a real delivery channel drops in behind the `dispatch` seam. Push goes
+ * out via PushService (FCM when configured, no-op otherwise); SMS can be added
+ * as another branch later.
  */
 @Injectable()
 export class NotificationsService {
@@ -25,6 +28,8 @@ export class NotificationsService {
   constructor(
     @InjectModel(Notification.name)
     private readonly notificationModel: Model<NotificationDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly push: PushService,
   ) {}
 
   /** Create a notification and (stub) dispatch it. */
@@ -43,15 +48,35 @@ export class NotificationsService {
   }
 
   /**
-   * Delivery seam. Real FCM/SMS providers implement this later; for now we mark
-   * it sent and log. Kept private + overridable so channels plug in cleanly.
+   * Delivery seam. Resolves the user's device tokens and sends via PushService
+   * (FCM when configured, else a logged no-op). Delivery is best-effort — a send
+   * failure marks the record FAILED but never throws to the caller.
    */
   private async dispatch(doc: NotificationDocument): Promise<void> {
-    this.logger.debug(
-      `[stub dispatch] ${doc.channel} → user ${doc.userId.toString()}: ${doc.title}`,
-    );
-    doc.status = NotificationStatus.SENT;
-    doc.sentAt = new Date();
+    try {
+      if (doc.channel === NotificationChannel.PUSH) {
+        const user = await this.userModel
+          .findById(doc.userId)
+          .select('fcmTokens')
+          .lean()
+          .exec();
+        const tokens = user?.fcmTokens ?? [];
+        await this.push.send({
+          tokens,
+          title: doc.title,
+          body: doc.body,
+          data: doc.data ? stringifyData(doc.data) : undefined,
+        });
+      }
+      doc.status = NotificationStatus.SENT;
+      doc.sentAt = new Date();
+    } catch (err) {
+      this.logger.error(
+        `Dispatch failed for notification ${doc._id.toString()}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+      doc.status = NotificationStatus.FAILED;
+    }
     await doc.save();
   }
 
@@ -59,4 +84,13 @@ export class NotificationsService {
   list(userId: string): Promise<Notification[]> {
     return this.notificationModel.find({ userId }).sort({ createdAt: -1 }).limit(100).lean().exec();
   }
+}
+
+/** FCM data payloads must be string→string. */
+function stringifyData(data: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(data)) {
+    out[k] = typeof v === 'string' ? v : JSON.stringify(v);
+  }
+  return out;
 }

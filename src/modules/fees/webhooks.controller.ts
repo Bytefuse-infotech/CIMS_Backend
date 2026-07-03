@@ -1,10 +1,12 @@
-import { Body, Controller, Post, HttpCode } from '@nestjs/common';
+import { Body, Controller, Post, HttpCode, Req, Headers } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import type { Request } from 'express';
 import { Public } from '@common/decorators/roles.decorator';
 import { TenantContextStore } from '@common/tenant-context';
 import { Payment, PaymentDocument } from './schemas/payment.schema';
 import { FeesService } from './fees.service';
+import { RazorpayGateway } from './razorpay.gateway';
 
 interface RazorpayWebhookBody {
   event: string;
@@ -34,13 +36,24 @@ export class WebhooksController {
   constructor(
     @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
     private readonly fees: FeesService,
+    private readonly gateway: RazorpayGateway,
   ) {}
 
   @Post('razorpay')
   @Public()
   @HttpCode(200)
-  async razorpay(@Body() body: RazorpayWebhookBody): Promise<{ received: true; applied: boolean }> {
-    // TODO(integration): verify X-Razorpay-Signature HMAC before trusting body.
+  async razorpay(
+    @Body() body: RazorpayWebhookBody,
+    @Req() req: Request & { rawBody?: Buffer },
+    @Headers('x-razorpay-signature') signature?: string,
+  ): Promise<{ received: true; applied: boolean }> {
+    // Verify authenticity. When a webhook secret is configured this enforces the
+    // HMAC over the raw body; in stub mode (no secret) it passes so dev works.
+    const raw = req.rawBody?.toString('utf8') ?? JSON.stringify(body);
+    if (!this.gateway.verifyWebhookSignature(raw, signature)) {
+      return { received: true, applied: false };
+    }
+
     if (body?.event !== 'payment.captured') {
       return { received: true, applied: false };
     }
