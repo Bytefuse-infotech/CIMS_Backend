@@ -39,6 +39,6 @@ import { ReceiptService } from './receipt.service';
     RazorpayGateway,
     ReceiptService,
   ],
-  exports: [FeesService, NotificationsService, StorageService, MongooseModule],
+  exports: [FeesService, NotificationsService, StorageService, RazorpayGateway, MongooseModule],
 })
 export class FeesModule {}
